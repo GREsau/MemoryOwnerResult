@@ -1,0 +1,104 @@
+<html>
+
+<head>
+    <title>HTTP Test</title>
+    <style>
+        table {
+            border-collapse: collapse;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid #666;
+        }
+
+        td {
+            padding: 2px 5px;
+            text-align: right;
+        }
+
+        .hidden td {
+            display: none;
+        }
+
+        .hidden {
+            opacity: .5;
+        }
+
+        strong {
+            font-size: x-large;
+        }
+    </style>
+</head>
+
+<body>
+    <input type="text" id="url" />
+    <input type="number" id="iterations" value="5" /> <input type="button" value="Send" id="send" />
+    <div id="results"></div>
+
+    <script>
+        var resultsEl = document.querySelector("#results");
+        document.querySelector("#send").addEventListener("click", () => {
+            const table = document.createElement("table")
+            table.innerHTML = `
+            <tr>
+              <th>Start</th>
+              <th>End</th>
+              <th>Response</th>
+              <th>Status</th>
+              <th>Duration (ms)</th>
+            </tr>`
+            resultsEl.insertBefore(table, resultsEl.firstElementChild)
+
+            const stats = document.createElement("p")
+            resultsEl.insertBefore(stats, resultsEl.firstElementChild)
+
+            resultsEl.insertBefore(document.createElement("hr"), resultsEl.firstElementChild)
+
+            const url = document.querySelector("#url").value
+            const iterations = document.querySelector("#iterations").value
+            const durations = []
+
+            for (let i = 0; i < iterations; i++) {
+                const row = table.appendChild(document.createElement("tr"))
+
+                const start = row.appendChild(document.createElement("td"))
+                const end = row.appendChild(document.createElement("td"))
+                const response = row.appendChild(document.createElement("td"))
+                const status = row.appendChild(document.createElement("td"))
+                const duration = row.appendChild(document.createElement("td"))
+
+                const startTime = new Date()
+                fetch(url)
+                    .then(res => {
+                        status.innerText = `${res.status} ${res.statusText}`
+                        return res.text()
+                    })
+                    .then(res => {
+                        const endTime = new Date()
+                        end.innerText = endTime.toISOString()
+
+                        duration.innerText = endTime - startTime
+                        response.innerText = `${res.length} characters in response`
+
+                        durations.push(endTime - startTime)
+                        const avg = Math.round(durations.reduce((a, b) => a + b, 0) / durations.length)
+                        stats.innerHTML = `URL: ${url}, min: ${Math.min(...durations)}, max: ${Math.max(...durations)}, avg: <strong>${avg}</strong>`
+                    })
+                    .catch(e => {
+                        status.innerText = e
+                    })
+                start.innerText = startTime.toISOString()
+            }
+
+            let hidden = false
+            table.querySelector("tr").addEventListener("click", () => {
+                hidden = !hidden
+                table.className = hidden ? "hidden" : ""
+            })
+        })
+    </script>
+</body>
+
+</html>
