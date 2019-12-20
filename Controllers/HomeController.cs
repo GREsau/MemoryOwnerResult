@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Buffers;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using StackExchange.Redis;
@@ -10,10 +11,8 @@ namespace DotNetTest.Controllers
     public class HomeController : Controller
     {
         private static readonly byte[] PayloadBytes = MakePayload();
-        private static readonly DateTimeOffset Nowish = DateTimeOffset.UtcNow;
 
         private ReadOnlySequence<byte> GetPayloadSequence() => new ReadOnlySequence<byte>(PayloadBytes);
-        private DateTimeOffset? LastModified => Request.QueryString.HasValue ? (DateTimeOffset?)Nowish : null;
 
         [HttpGet("/lease")]
         public ActionResult<string[]> Lease()
@@ -22,7 +21,20 @@ namespace DotNetTest.Controllers
             var lease = Lease<byte>.Create((int)payload.Length, false);
             payload.CopyTo(lease.Span);
 
-            return new MemoryOwnerResult(lease, "application/json", LastModified);
+            return new MemoryResult(lease, "application/json");
+        }
+
+        [HttpGet("/leaseETag")]
+        public ActionResult<string[]> LeaseETag(string hashName = "SHA256")
+        {
+            var payload = GetPayloadSequence();
+            var lease = Lease<byte>.Create((int)payload.Length, false);
+            payload.CopyTo(lease.Span);
+
+            return new MemoryResult(lease, "application/json")
+            {
+                ETagHashName = new HashAlgorithmName(hashName)
+            };
         }
 
         [HttpGet("/array")]
@@ -31,10 +43,7 @@ namespace DotNetTest.Controllers
             var payload = GetPayloadSequence();
             var arr = payload.ToArray();
 
-            return new FileContentResult(arr, "application/json")
-            {
-                LastModified = LastModified
-            };
+            return new FileContentResult(arr, "application/json");
         }
 
         private static byte[] MakePayload()
